@@ -1,9 +1,12 @@
 # -*- coding: utf-8 -*-
 import scrapy
-from wikiloves.items import WikilovesItem
-from scrapy import request
-from urllib import urljoin
+from wikiloves.items import WikilovesItem, WikilovesItemIndice
+from urlparse import urljoin
 
+
+INDICE = 'ccaa nlic stotal sterrestre smarina scalic stotalca'.split()
+ITEM = 'nombre codigo fichas provincia coordenadas superficie categoria imagen'.split()
+BASE = 'https://es.wikipedia.org'
 
 class WikilovesearthSpider(scrapy.Spider):
     name = "wikilovesearth"
@@ -13,33 +16,21 @@ class WikilovesearthSpider(scrapy.Spider):
     )
 
     def parse(self, response):
-
-        tabla = response.xpath('//table/tr[td[1]//a]')
-        for row in tabla:
-            item = WikilovesItem()
-            lic = row.xpath('td[1]//a//text()').extract()[0]
-            url = row.xpath('td[1]//a/@href').extract()[0]
-            request = scrapy.Request(urljoin(BASE, url),
-                             callback=self.parse_ccaa)
-            request.meta['lic'] = lic
-            yield request
+        for fila in response.xpath('//div[@id="mw-content-text"]//table/tr[td]'):
+            item = WikilovesItemIndice()
+            datos = [''.join(c.xpath('.//text()').extract()).strip() for c in fila.xpath('.//td')]
+            for i, atributo in enumerate(INDICE):
+                item[atributo] = datos[i]
+            yield item
+            url = ''.join(fila.xpath('td[1]//a/@href').extract()).strip()
+            if url:
+                request = scrapy.Request(urljoin(BASE, url), callback=self.parse_ccaa)
+                yield request
 
     def parse_ccaa(self, response):
-        lic = response.meta['lic']
-
-
-
-
-
-def parse_page1(self, response):
-    item = MyItem()
-    item['main_url'] = response.url
-    request = scrapy.Request("http://www.example.com/some_page.html",
-                             callback=self.parse_page2)
-    request.meta['item'] = item
-    return request
-
-def parse_page2(self, response):
-    item = response.meta['item']
-    item['other_url'] = response.url
-    return item
+        for fila in response.xpath('//div[@id="mw-content-text"]//table[not(contains(@class, "collapsible"))]/tr[td]'):
+            item = WikilovesItem()
+            datos = [''.join(c.xpath('.//text()').extract()).strip() for c in fila.xpath('.//td')]
+            for i, atributo in enumerate(ITEM):
+                item[atributo] = datos[i]
+            yield item
